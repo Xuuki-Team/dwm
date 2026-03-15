@@ -55,6 +55,8 @@
 #define HEIGHT(X)               ((X)->h + 2 * (X)->bw)
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
 #define TEXTW(X)                (drw_fontset_getwidth(drw, (X)) + lrpad)
+#define STATUSDELIM            ''
+#define MAXSTATUSBLOCKS        32
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
@@ -223,6 +225,8 @@ static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
 static void updatetitle(Client *c);
+static void buildstatus(void);
+static int statusclick(const XButtonPressedEvent *ev);
 static void updatewindowtype(Client *c);
 static void updatewmhints(Client *c);
 static void view(const Arg *arg);
@@ -236,6 +240,10 @@ static void zoom(const Arg *arg);
 /* variables */
 static const char broken[] = "broken";
 static char stext[256];
+static char estext[256];
+static int statusblockcount;
+static int statusblockwidths[MAXSTATUSBLOCKS];
+static int statustw;
 static int screen;
 static int sw, sh;           /* X display screen geometry width, height */
 static int bh;               /* bar height */
@@ -423,6 +431,7 @@ buttonpress(XEvent *e)
 	Monitor *m;
 	XButtonPressedEvent *ev = &e->xbutton;
 
+	buildstatus();
 	click = ClkRootWin;
 	/* focus monitor if necessary */
 	if ((m = wintomon(ev->window)) && m != selmon) {
@@ -440,7 +449,7 @@ buttonpress(XEvent *e)
 			arg.ui = 1 << i;
 		} else if (ev->x < x + TEXTW(selmon->ltsymbol))
 			click = ClkLtSymbol;
-		else if (ev->x > selmon->ww - (int)TEXTW(stext))
+		else if (ev->x > selmon->ww - statustw)
 			click = ClkStatusText;
 		else
 			click = ClkWinTitle;
@@ -450,6 +459,8 @@ buttonpress(XEvent *e)
 		XAllowEvents(dpy, ReplayPointer, CurrentTime);
 		click = ClkClientWin;
 	}
+	if (click == ClkStatusText && statusclick(ev))
+		return;
 	for (i = 0; i < LENGTH(buttons); i++)
 		if (click == buttons[i].click && buttons[i].func && buttons[i].button == ev->button
 		&& CLEANMASK(buttons[i].mask) == CLEANMASK(ev->state))
@@ -694,6 +705,72 @@ dirtomon(int dir)
 	return m;
 }
 
+static void
+buildstatus(void)
+{
+	char copy[sizeof(stext)];
+	size_t len = MIN(sizeof(copy) - 1, strlen(stext));
+	memcpy(copy, stext, len);
+	copy[len] = ' ';
+
+	statusblockcount = 0;
+	if (len == 0) {
+		estext[0] = ' ';
+		statustw = 0;
+		return;
+	}
+
+	char *segment = copy;
+	while (statusblockcount < MAXSTATUSBLOCKS && *segment) {
+		char *next = strchr(segment, STATUSDELIM);
+		if (next)
+			*next = ' ';
+		statusblockwidths[statusblockcount++] = drw_fontset_getwidth(drw, segment) + lrpad;
+		if (!next)
+			break;
+		segment = next + 1;
+	}
+
+	char *src = stext;
+	char *dst = estext;
+	while (*src && (dst - estext) < (int)sizeof(estext) - 1) {
+		*dst++ = (*src == STATUSDELIM) ? ' ' : *src;
+		src++;
+	}
+	*dst = ' ';
+	statustw = TEXTW(estext) - lrpad + 2;
+}
+
+static int
+statusclick(const XButtonPressedEvent *ev)
+{
+	buildstatus();
+	if (!statusblockcount || statustw <= 0)
+		return 0;
+
+	int start = selmon->ww - statustw;
+	if (ev->x < start)
+		return 0;
+
+	int rel = ev->x - start;
+	for (int i = 0; i < statusblockcount; i++) {
+		if (rel < statusblockwidths[i]) {
+			if (i < (int)LENGTH(statuscmds) && statuscmds[i][0]) {
+				char btn[4];
+				snprintf(btn, sizeof(btn), "%u", ev->button);
+				setenv("BLOCK_BUTTON", btn, 1);
+				Arg arg = { .v = statuscmds[i] };
+				spawn(&arg);
+				unsetenv("BLOCK_BUTTON");
+				return 1;
+			}
+			return 0;
+		}
+		rel -= statusblockwidths[i];
+	}
+	return 0;
+}
+
 void
 drawbar(Monitor *m)
 {
@@ -708,9 +785,10 @@ drawbar(Monitor *m)
 
 	/* draw status first so it can be overdrawn by tags later */
 	if (m == selmon) { /* status is only drawn on selected monitor */
+		buildstatus();
 		drw_setscheme(drw, scheme[SchemeNorm]);
-		tw = TEXTW(stext) - lrpad + 2; /* 2px right padding */
-		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+		tw = statustw;
+		drw_text(drw, m->ww - tw, 0, tw, bh, 0, estext, 0);
 	}
 
 	for (c = m->clients; c; c = c->next) {
