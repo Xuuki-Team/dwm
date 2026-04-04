@@ -21,7 +21,7 @@ static const char *colors[][3]      = {
 
 /* tagging */
 //                             0    1     2    3     4    5                       
-static const char *tags[] = { "", " ", "󰎆", " ", "󰖟", "󰇮" };
+static const char *tags[] = { " ", " ", "󰎆 ", " ", "󰖟 ", "󰇮 " };
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -79,6 +79,7 @@ static const char *statuscmds[][4] = {
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
 	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
+	{ ControlMask,                  XK_w,      spawn,          {.v = statuscmds[1] } },
 	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
