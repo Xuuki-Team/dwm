@@ -1,0 +1,113 @@
+#!/bin/bash
+# brightness-all - Control brightness on x220, x230, and VAIO simultaneously
+# Usage: brightness-all [0-100 | +N | -N | status]
+
+# Machine IPs
+X220="192.168.1.220"
+VAIO="192.168.1.163"
+
+# SSH options
+SSH_OPTS="-o ConnectTimeout=5"
+
+show_help() {
+    echo "brightness-all - Control brightness on all machines simultaneously"
+    echo ""
+    echo "Usage: brightness-all [0-100]     # Set all machines to N%"
+    echo "       brightness-all +N          # Increase all by N%"
+    echo "       brightness-all -N          # Decrease all by N%"
+    echo "       brightness-all status      # Show current brightness on all"
+    echo ""
+    echo "Machines controlled:"
+    echo "  - x220 ($X220)"
+    echo "  - x230 (bare metal host)"
+    echo "  - VAIO ($VAIO)"
+}
+
+# Show help if no args or help flag
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    show_help
+    exit 0
+fi
+
+COMMAND="$1"
+
+# Check status
+if [ "$COMMAND" = "status" ]; then
+    echo "=== Brightness Status ==="
+    echo ""
+    
+    # x220
+    echo -n "x220 ($X220): "
+    OUTPUT=$(ssh $SSH_OPTS admin@$X220 "~/brightness 2>/dev/null" 2>/dev/null | head -1)
+    if [ -n "$OUTPUT" ]; then
+        echo "$OUTPUT"
+    else
+        echo "unreachable"
+    fi
+    
+    # x230 bare metal
+    echo -n "x230 (bare metal): "
+    OUTPUT=$(ssh $SSH_OPTS admin@192.168.1.230 "~/brightness 2>/dev/null" 2>/dev/null | head -1)
+    if [ -n "$OUTPUT" ]; then
+        echo "$OUTPUT"
+    else
+        echo "unreachable (needs password)"
+    fi
+    
+    # VAIO
+    echo -n "VAIO ($VAIO): "
+    OUTPUT=$(ssh $SSH_OPTS jnash@$VAIO "~/brightness 2>/dev/null" 2>/dev/null | head -1)
+    if [ -n "$OUTPUT" ]; then
+        echo "$OUTPUT"
+    else
+        echo "unreachable"
+    fi
+    
+    exit 0
+fi
+
+# Validate command is a number with optional +/- prefix
+if ! [[ "$COMMAND" =~ ^[+-]?[0-9]+$ ]]; then
+    echo "Error: Invalid argument '$COMMAND'"
+    show_help
+    exit 1
+fi
+
+# Check if it's within 0-100 range (for direct percentage)
+if [[ "$COMMAND" =~ ^[0-9]+$ ]]; then
+    if [ "$COMMAND" -lt 0 ] || [ "$COMMAND" -gt 100 ]; then
+        echo "Error: Percentage must be between 0 and 100"
+        exit 1
+    fi
+fi
+
+# Set brightness on all machines
+echo "Setting brightness to $COMMAND on all machines..."
+echo ""
+
+# x220
+echo -n "x220 ($X220): "
+if ssh $SSH_OPTS admin@$X220 "~/brightness $COMMAND" 2>/dev/null; then
+    :
+else
+    echo "✗ failed"
+fi
+
+# x230 bare metal
+echo -n "x230 (bare metal): "
+if ssh $SSH_OPTS admin@192.168.1.230 "~/brightness $COMMAND" 2>/dev/null; then
+    :
+else
+    echo "✗ failed (needs password)"
+fi
+
+# VAIO
+echo -n "VAIO ($VAIO): "
+if ssh $SSH_OPTS jnash@$VAIO "~/brightness $COMMAND" 2>/dev/null; then
+    :
+else
+    echo "✗ failed"
+fi
+
+echo ""
+echo "Done!"

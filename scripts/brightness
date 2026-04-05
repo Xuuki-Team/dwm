@@ -1,0 +1,70 @@
+#!/bin/bash
+# brightness - unified brightness control for x220, x230, and VAIO
+# Usage: brightness [0-100]
+
+# Check if running in VM (no backlight)
+if [ ! -d "/sys/class/backlight" ] || [ -z "$(ls /sys/class/backlight/ 2>/dev/null)" ]; then
+    echo "No backlight control available (VM or no display)"
+    echo "Use 'brightness-all' to control remote machines:"
+    echo "  brightness-all 50     # Set all machines to 50%"
+    echo "  brightness-all +10    # Increase all by 10%"
+    exit 1
+fi
+
+# Auto-detect machine type and backlight path
+HOSTNAME=$(cat /etc/hostname 2>/dev/null || echo "unknown")
+
+# Check available backlight paths
+if [ -d "/sys/class/backlight/intel_backlight" ]; then
+    BACKLIGHT_PATH="/sys/class/backlight/intel_backlight"
+    MAX_BRIGHTNESS=$(cat "$BACKLIGHT_PATH/max_brightness" 2>/dev/null || echo 15000)
+elif [ -d "/sys/class/backlight/acpi_video0" ]; then
+    BACKLIGHT_PATH="/sys/class/backlight/acpi_video0"
+    MAX_BRIGHTNESS=$(cat "$BACKLIGHT_PATH/max_brightness" 2>/dev/null || echo 15)
+else
+    echo "No backlight control available"
+    exit 1
+fi
+
+BRIGHTNESS_FILE="$BACKLIGHT_PATH/brightness"
+
+# Show usage if no argument or help
+if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    CURRENT=$(cat "$BRIGHTNESS_FILE" 2>/dev/null || echo 0)
+    echo "Current brightness: $CURRENT / $MAX_BRIGHTNESS"
+    echo "Usage: brightness [0-100]"
+    echo "       brightness +N    - increase by N percent"
+    echo "       brightness -N    - decrease by N percent"
+    exit 0
+fi
+
+# Get current brightness
+CURRENT=$(cat "$BRIGHTNESS_FILE" 2>/dev/null || echo 0)
+
+# Calculate new brightness
+if [[ "$1" == +* ]]; then
+    # Increase by percentage
+    DELTA=$((MAX_BRIGHTNESS * ${1#+} / 100))
+    NEW=$((CURRENT + DELTA))
+elif [[ "$1" == -* ]]; then
+    # Decrease by percentage
+    DELTA=$((MAX_BRIGHTNESS * ${1#-} / 100))
+    NEW=$((CURRENT - DELTA))
+else
+    # Set to percentage
+    NEW=$((MAX_BRIGHTNESS * $1 / 100))
+fi
+
+# Clamp to valid range
+if [ $NEW -lt 0 ]; then
+    NEW=0
+fi
+if [ $NEW -gt $MAX_BRIGHTNESS ]; then
+    NEW=$MAX_BRIGHTNESS
+fi
+
+# Set brightness
+echo $NEW | sudo tee "$BRIGHTNESS_FILE" > /dev/null
+
+# Show result
+echo "Brightness set to $NEW / $MAX_BRIGHTNESS ($((NEW * 100 / MAX_BRIGHTNESS))%)"
