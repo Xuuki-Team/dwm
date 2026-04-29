@@ -6,7 +6,7 @@ static const unsigned int snap      = 32;       /* snap pixel */
 static const unsigned int gappx     = 10;       /* gap between windows */
 static const int showbar            = 1;        /* 0 means no bar */
 static const int topbar             = 1;        /* 0 means bottom bar */
-static const char *fonts[]          = { "monospace:size=12" };
+static const char *fonts[]          = { "monospace:size=12", "Symbols Nerd Font:size=12" };
 static const char dmenufont[]       = "monospace:size=12";
 static const char col_gray1[]       = "#222222";
 static const char col_gray2[]       = "#444444";
@@ -19,9 +19,9 @@ static const char *colors[][3]      = {
         [SchemeSel] = { "#000000", "#ffffff", "#ffffff" }, 
 };
 
-/* tagging */
-//                             0    1     2    3     4    5                       
-static const char *tags[] = { " ", " ", "󰎆 ", " ", "󰖟 ", "󰇮 " };
+/* tagging - admin: minimal, no audio/video/mail */
+//                             0    1     2                        
+static const char *tags[] = { " ", " ", "󰖟 " };
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -31,12 +31,8 @@ static const Rule rules[] = {
 	/* class      instance    title       tags mask     isfloating   monitor */
         { "st-256color",  NULL,       NULL,      (1 << 0) | (1 << 1),       0,           -1 },
         { "Zathura",  NULL,       NULL,      (1 << 1),       0,           -1 },
-        { "Ardour-8.12.0",  NULL,       NULL,      (1 << 2),       0,           -1 }, 
-        { "Blender",  NULL,       NULL,      (1 << 3),       0,           -1 },
-        { "qutebrowser",  NULL,       NULL,      (1 << 0) | (1 << 4),       0,           -1 },
-	{ "org.mozilla.Thunderbird",  NULL,       NULL,      1 << 5,       0,           -1 },
-
-
+        { "qutebrowser",  NULL,       NULL,      (1 << 0) | (1 << 2),       0,           -1 },
+        /* No Ardour, Blender, or Thunderbird rules for admin */
 };
 
 /* layout(s) */
@@ -48,10 +44,7 @@ static const int refreshrate = 120;  /* refresh rate (per second) for client mov
 
 static const Layout layouts[] = {
 	/* symbol     arrange function */
-        // { "[]=",      tile },    /* first entry is default */
-	// { "><>",      NULL },    /* no layout function means floating behavior */
-	// { "[M]",      monocle },
-	{ "",      tile },    /* first entry is default */
+        { "",      tile },    /* first entry is default */
 	{ "",      NULL },    /* no layout function means floating behavior */
 	{ "",      monocle },
 };
@@ -73,7 +66,7 @@ static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont,
 static const char *termcmd[]  = { "st", NULL };
 static const char *statuscmds[][4] = {
 	[0] = { NULL },
-	[1] = { "/bin/sh", "-c", "$HOME/dwmblocks/bin/wifi-menu.sh", NULL },
+	[1] = { "/bin/sh", "-c", "$HOME/Projects/dwmblocks/bin/wifi-menu.sh", NULL },
 };
 
 static const Key keys[] = {
@@ -105,17 +98,10 @@ static const Key keys[] = {
 	TAGKEYS(                        XK_1,                      0)
 	TAGKEYS(                        XK_2,                      1)
 	TAGKEYS(                        XK_3,                      2)
-	TAGKEYS(                        XK_4,                      3)
-	TAGKEYS(                        XK_5,                      4)
-	TAGKEYS(                        XK_6,                      5)
-	TAGKEYS(                        XK_7,                      6)
-	TAGKEYS(                        XK_8,                      7)
-	TAGKEYS(                        XK_9,                      8)
 	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
 };
 
 /* button definitions */
-/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
 static const Button buttons[] = {
 	/* click                event mask      button          function        argument */
 	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
@@ -130,4 +116,3 @@ static const Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
-
